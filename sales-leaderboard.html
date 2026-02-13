@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Leaderboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .top-performers {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+
+        .top-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            min-width: 200px;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .top-card.gold {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #333;
+            transform: scale(1.1);
+        }
+
+        .top-card h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+
+        .top-card .name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .top-card .score {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .leaderboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .team-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .team-section h2 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .team-section h2 .icon {
+            font-size: 32px;
+        }
+
+        .member-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .member-card:hover {
+            transform: translateX(5px);
+            background: rgba(0,0,0,0.3);
+        }
+
+        .member-card.rank-1 {
+            border-left-color: #ffd700;
+            background: linear-gradient(90deg, rgba(255,215,0,0.2) 0%, rgba(0,0,0,0.2) 100%);
+        }
+
+        .member-card.rank-2 {
+            border-left-color: #c0c0c0;
+            background: linear-gradient(90deg, rgba(192,192,192,0.2) 0%, rgba(0,0,0,0.2) 100%);
+        }
+
+        .member-card.rank-3 {
+            border-left-color: #cd7f32;
+            background: linear-gradient(90deg, rgba(205,127,50,0.2) 0%, rgba(0,0,0,0.2) 100%);
+        }
+
+        .member-name {
+            color: white;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .member-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+
+        .stat-value.monthly {
+            color: #60a5fa;
+        }
+
+        .medal {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 24px;
+            padding: 50px;
+        }
+
+        .last-updated {
+            text-align: center;
+            color: rgba(255,255,255,0.6);
+            margin-top: 30px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 968px) {
+            .leaderboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Sales Leaderboard 🏆</h1>
+        </div>
+
+        <div class="top-performers" id="topPerformers">
+            <!-- Top performers will be inserted here -->
+        </div>
+
+        <div class="leaderboard-grid" id="leaderboard">
+            <div class="loading">Loading data...</div>
+        </div>
+
+        <div class="last-updated" id="lastUpdated"></div>
+    </div>
+
+    <script>
+        // ⚠️ REPLACE THIS WITH YOUR GOOGLE SHEETS PUBLISHED URL
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT74JlUyR3-f7VkEjJfcKqD6pRf4rRwMEPzUZ6WroPraa2ZOCTzeXyaT5u1991vnMeysd2a0cOiFHfC/pubhtml';
+
+        async function fetchData() {
+            try {
+                const response = await fetch(SHEET_URL);
+                const text = await response.text();
+                const data = parseCSV(text);
+                displayLeaderboard(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('leaderboard').innerHTML = 
+                    '<div class="loading">Error loading data. Please check your Google Sheets URL.</div>';
+            }
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',');
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim()) {
+                    const values = lines[i].split(',');
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header.trim()] = values[index] ? values[index].trim() : '';
+                    });
+                    data.push(row);
+                }
+            }
+
+            return data;
+        }
+
+        function displayLeaderboard(data) {
+            // Split data into two teams (you can customize this logic)
+            const team1 = data.filter(member => member.Team === 'fsegse' || member.Stage === 'test');
+            const team2 = data.filter(member => member.Team === 'poy' || member.Stage === 'Augustine');
+
+            // Sort by monthly score
+            team1.sort((a, b) => parseInt(b.count || 0) - parseInt(a.count || 0));
+            team2.sort((a, b) => parseInt(b.count || 0) - parseInt(a.count || 0));
+
+            // Display top performers
+            displayTopPerformers([...team1, ...team2]);
+
+            // Display teams
+            const leaderboard = document.getElementById('leaderboard');
+            leaderboard.innerHTML = `
+                <div class="team-section">
+                    <h2><span class="icon">👥</span> Team Alpha</h2>
+                    ${renderTeam(team1)}
+                </div>
+                <div class="team-section">
+                    <h2><span class="icon">🎯</span> Team Beta</h2>
+                    ${renderTeam(team2)}
+                </div>
+            `;
+
+            // Update timestamp
+            document.getElementById('lastUpdated').textContent = 
+                `Last updated: ${new Date().toLocaleString()}`;
+        }
+
+        function displayTopPerformers(allMembers) {
+            const sorted = [...allMembers].sort((a, b) => 
+                parseInt(b.count || 0) - parseInt(a.count || 0)
+            );
+
+            const topPerformers = document.getElementById('topPerformers');
+            topPerformers.innerHTML = `
+                <div class="top-card">
+                    <h3>🥈 2nd Place</h3>
+                    <div class="name">${sorted[1]?.Stage || 'N/A'}</div>
+                    <div class="score">${sorted[1]?.count || 0}</div>
+                </div>
+                <div class="top-card gold">
+                    <h3>👑 Top Agent</h3>
+                    <div class="name">${sorted[0]?.Stage || 'N/A'}</div>
+                    <div class="score">${sorted[0]?.count || 0}</div>
+                </div>
+                <div class="top-card">
+                    <h3>🥉 3rd Place</h3>
+                    <div class="name">${sorted[2]?.Stage || 'N/A'}</div>
+                    <div class="score">${sorted[2]?.count || 0}</div>
+                </div>
+            `;
+        }
+
+        function renderTeam(members) {
+            return members.map((member, index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                return `
+                    <div class="member-card rank-${index + 1}">
+                        <div class="member-name">
+                            ${medal} ${member.Stage || member.Name || 'Unknown'}
+                        </div>
+                        <div class="member-stats">
+                            <div class="stat">
+                                <div class="stat-label">Daily</div>
+                                <div class="stat-value">${member.Target || 0}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Monthly</div>
+                                <div class="stat-value monthly">${member.count || 0}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Fetch data on page load
+        fetchData();
+
+        // Auto-refresh every 60 seconds
+        setInterval(fetchData, 60000);
+    </script>
+</body>
+</html>
