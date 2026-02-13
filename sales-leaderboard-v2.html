@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Leaderboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .top-performers {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+
+        .top-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            min-width: 200px;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .top-card.gold {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #333;
+            transform: scale(1.1);
+        }
+
+        .top-card h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+
+        .top-card .name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .top-card .score {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .leaderboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .team-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .team-section h2 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .team-section h2 .icon {
+            font-size: 32px;
+        }
+
+        .member-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .member-card:hover {
+            transform: translateX(5px);
+            background: rgba(0,0,0,0.3);
+        }
+
+        .member-card.rank-1 {
+            border-left-color: #ffd700;
+            background: linear-gradient(90deg, rgba(255,215,0,0.2) 0%, rgba(0,0,0,0.2) 100%);
+        }
+
+        .member-card.rank-2 {
+            border-left-color: #c0c0c0;
+            background: linear-gradient(90deg, rgba(192,192,192,0.2) 0%, rgba(0,0,0,0.2) 100%);
+        }
+
+        .member-card.rank-3 {
+            border-left-color: #cd7f32;
+            background: linear-gradient(90deg, rgba(205,127,50,0.2) 0%, rgba(0,0,0,0.2) 100%);
+        }
+
+        .member-name {
+            color: white;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .member-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+
+        .stat-value.monthly {
+            color: #60a5fa;
+        }
+
+        .medal {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 24px;
+            padding: 50px;
+        }
+
+        .error {
+            text-align: center;
+            color: #ff6b6b;
+            font-size: 18px;
+            padding: 30px;
+            background: rgba(255,107,107,0.1);
+            border-radius: 10px;
+            margin: 20px;
+        }
+
+        .last-updated {
+            text-align: center;
+            color: rgba(255,255,255,0.6);
+            margin-top: 30px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 968px) {
+            .leaderboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .debug-info {
+            background: rgba(0,0,0,0.3);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Sales Leaderboard 🏆</h1>
+        </div>
+
+        <div class="top-performers" id="topPerformers">
+            <!-- Top performers will be inserted here -->
+        </div>
+
+        <div class="leaderboard-grid" id="leaderboard">
+            <div class="loading">Loading data...</div>
+        </div>
+
+        <div class="last-updated" id="lastUpdated"></div>
+        
+        <!-- Debug info (remove this section once working) -->
+        <div class="debug-info" id="debugInfo" style="display: none;"></div>
+    </div>
+
+    <script>
+        // ⚠️ REPLACE THIS WITH YOUR GOOGLE SHEETS PUBLISHED URL
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vI741IUyR3-f7VkEjJfcKqD6pRf4rRwMEPzUZ6WroPraa2ZQClzeXyaT5u1991vnMeysd2a0c0IfHfC/pub?output=csv';
+
+        // Set to true to see debug information
+        const DEBUG_MODE = true;
+
+        function debugLog(message, data = null) {
+            if (DEBUG_MODE) {
+                const debugDiv = document.getElementById('debugInfo');
+                debugDiv.style.display = 'block';
+                const time = new Date().toLocaleTimeString();
+                let logMessage = `[${time}] ${message}`;
+                if (data) {
+                    logMessage += '\n' + JSON.stringify(data, null, 2);
+                }
+                debugDiv.innerHTML += logMessage + '\n\n';
+                console.log(message, data);
+            }
+        }
+
+        async function fetchData() {
+            try {
+                debugLog('Fetching data from:', SHEET_URL);
+                
+                const response = await fetch(SHEET_URL);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                debugLog('Received text length:', text.length);
+                debugLog('First 200 characters:', text.substring(0, 200));
+                
+                const data = parseCSV(text);
+                debugLog('Parsed data:', data);
+                
+                if (data.length === 0) {
+                    throw new Error('No data found in spreadsheet');
+                }
+                
+                displayLeaderboard(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                debugLog('ERROR:', error.message);
+                
+                document.getElementById('leaderboard').innerHTML = 
+                    `<div class="error">
+                        <h3>⚠️ Error Loading Data</h3>
+                        <p>${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 14px;">Please check:</p>
+                        <ul style="text-align: left; display: inline-block; margin-top: 10px;">
+                            <li>Google Sheet is published as CSV</li>
+                            <li>URL ends with /pub?output=csv</li>
+                            <li>Sheet has data with headers</li>
+                        </ul>
+                    </div>`;
+            }
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            
+            if (lines.length < 2) {
+                debugLog('Not enough lines in CSV');
+                return [];
+            }
+            
+            // Parse headers - handle quoted fields
+            const headers = parseCSVLine(lines[0]);
+            debugLog('Headers found:', headers);
+            
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim()) {
+                    const values = parseCSVLine(lines[i]);
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] || '';
+                    });
+                    data.push(row);
+                }
+            }
+
+            return data;
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            
+            return result;
+        }
+
+        function displayLeaderboard(data) {
+            debugLog('Displaying leaderboard with data:', data);
+            
+            // Get unique teams
+            const teams = [...new Set(data.map(member => member.Team || 'No Team'))];
+            debugLog('Teams found:', teams);
+            
+            // If only one team or no team column, split data in half
+            let team1Data, team2Data;
+            
+            if (teams.length <= 1 || teams[0] === 'No Team') {
+                // Split data in half
+                const mid = Math.ceil(data.length / 2);
+                team1Data = data.slice(0, mid);
+                team2Data = data.slice(mid);
+            } else {
+                // Split by team
+                team1Data = data.filter(member => member.Team === teams[0]);
+                team2Data = data.filter(member => member.Team === teams[1] || member.Team !== teams[0]);
+            }
+
+            // Sort by Count column (or count, or monthly score)
+            const sortKey = data[0].Count !== undefined ? 'Count' : 
+                           data[0].count !== undefined ? 'count' : 
+                           data[0].Monthly !== undefined ? 'Monthly' : 'Count';
+            
+            debugLog('Sorting by key:', sortKey);
+            
+            team1Data.sort((a, b) => parseInt(b[sortKey] || 0) - parseInt(a[sortKey] || 0));
+            team2Data.sort((a, b) => parseInt(b[sortKey] || 0) - parseInt(a[sortKey] || 0));
+
+            // Display top performers
+            displayTopPerformers([...team1Data, ...team2Data], sortKey);
+
+            // Display teams
+            const leaderboard = document.getElementById('leaderboard');
+            leaderboard.innerHTML = `
+                <div class="team-section">
+                    <h2><span class="icon">👥</span> ${teams[0] || 'Team Alpha'}</h2>
+                    ${renderTeam(team1Data, sortKey)}
+                </div>
+                <div class="team-section">
+                    <h2><span class="icon">🎯</span> ${teams[1] || 'Team Beta'}</h2>
+                    ${renderTeam(team2Data, sortKey)}
+                </div>
+            `;
+
+            // Update timestamp
+            document.getElementById('lastUpdated').textContent = 
+                `Last updated: ${new Date().toLocaleString()}`;
+        }
+
+        function displayTopPerformers(allMembers, sortKey) {
+            const sorted = [...allMembers].sort((a, b) => 
+                parseInt(b[sortKey] || 0) - parseInt(a[sortKey] || 0)
+            );
+
+            const getName = (member) => member.Stage || member.Name || member.stage || 'N/A';
+
+            const topPerformers = document.getElementById('topPerformers');
+            topPerformers.innerHTML = `
+                <div class="top-card">
+                    <h3>🥈 2nd Place</h3>
+                    <div class="name">${getName(sorted[1] || {})}</div>
+                    <div class="score">${sorted[1] ? (sorted[1][sortKey] || 0) : 0}</div>
+                </div>
+                <div class="top-card gold">
+                    <h3>👑 Top Agent</h3>
+                    <div class="name">${getName(sorted[0] || {})}</div>
+                    <div class="score">${sorted[0] ? (sorted[0][sortKey] || 0) : 0}</div>
+                </div>
+                <div class="top-card">
+                    <h3>🥉 3rd Place</h3>
+                    <div class="name">${getName(sorted[2] || {})}</div>
+                    <div class="score">${sorted[2] ? (sorted[2][sortKey] || 0) : 0}</div>
+                </div>
+            `;
+        }
+
+        function renderTeam(members, sortKey) {
+            const getName = (member) => member.Stage || member.Name || member.stage || 'Unknown';
+            const getTarget = (member) => member.Target || member.target || member.Daily || 0;
+            
+            return members.map((member, index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                return `
+                    <div class="member-card rank-${index + 1}">
+                        <div class="member-name">
+                            ${medal} ${getName(member)}
+                        </div>
+                        <div class="member-stats">
+                            <div class="stat">
+                                <div class="stat-label">Target</div>
+                                <div class="stat-value">${getTarget(member)}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Score</div>
+                                <div class="stat-value monthly">${member[sortKey] || 0}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Fetch data on page load
+        fetchData();
+
+        // Auto-refresh every 60 seconds
+        setInterval(fetchData, 60000);
+    </script>
+</body>
+</html>
