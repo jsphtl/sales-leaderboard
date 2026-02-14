@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            background: white;
+            border: 3px solid #000;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            border-bottom: 3px solid #000;
+            padding: 30px;
+            background: white;
+        }
+
+        .totals {
+            display: flex;
+            justify-content: flex-end;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .total-line {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .column-headers {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            border-bottom: 3px solid #000;
+            background: white;
+        }
+
+        .column-header {
+            padding: 15px 20px;
+            font-weight: bold;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .column-header:first-child {
+            text-align: left;
+        }
+
+        .column-header:not(:last-child) {
+            border-right: 3px solid #000;
+        }
+
+        .agents-list {
+            background: white;
+        }
+
+        .agent-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            border-bottom: 3px solid #000;
+            min-height: 80px;
+            align-items: center;
+        }
+
+        .agent-row:last-child {
+            border-bottom: none;
+        }
+
+        .agent-name {
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .agent-value {
+            padding: 20px;
+            text-align: center;
+            font-size: 18px;
+            border-left: 3px solid #000;
+            position: relative;
+        }
+
+        .agent-value-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .main-value {
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .target-info {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .target-reached {
+            color: #22c55e;
+            font-weight: bold;
+        }
+
+        .loading {
+            padding: 40px;
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .error {
+            padding: 40px;
+            text-align: center;
+            color: #ef4444;
+        }
+
+        @media (max-width: 600px) {
+            .agent-row {
+                grid-template-columns: 1.5fr 1fr 1fr;
+            }
+            
+            .column-headers {
+                grid-template-columns: 1.5fr 1fr 1fr;
+            }
+
+            .agent-name {
+                font-size: 16px;
+            }
+
+            .agent-value {
+                font-size: 16px;
+            }
+
+            .main-value {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <div class="totals" id="totals">
+                <div class="total-line">Total: <span id="grandTotal">$0</span></div>
+                <div class="total-line">Today: <span id="todayTotal">$0</span></div>
+            </div>
+        </div>
+
+        <div class="column-headers">
+            <div class="column-header"></div>
+            <div class="column-header">Total</div>
+            <div class="column-header">Today</div>
+        </div>
+
+        <div class="agents-list" id="agentsList">
+            <div class="loading">Loading data...</div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ REPLACE THIS WITH YOUR GOOGLE SHEETS PUBLISHED URL
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT74JlUyR3-f7VkEjJfcKqD6pRf4rRwMEPzUZ6WroPraa2ZQClzeXyaT5u1991vnMeysd2a0c0IfHfC/pub?output=csv';
+
+        // Target progression levels (in dollars)
+        const TARGET_LEVELS = [30000, 50000, 70000, 100000];
+
+        function formatCurrency(value) {
+            const num = parseFloat(value) || 0;
+            return num.toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+        }
+
+        function getCurrentTarget(totalAmount) {
+            // Find the next target level that hasn't been reached
+            for (let target of TARGET_LEVELS) {
+                if (totalAmount < target) {
+                    return target;
+                }
+            }
+            // If all targets reached, return the highest one
+            return TARGET_LEVELS[TARGET_LEVELS.length - 1];
+        }
+
+        function getTargetStatus(totalAmount) {
+            const currentTarget = getCurrentTarget(totalAmount);
+            const targetIndex = TARGET_LEVELS.indexOf(currentTarget);
+            
+            if (totalAmount >= currentTarget) {
+                return {
+                    text: `Target ${formatCurrency(currentTarget)} reached! 🎉`,
+                    reached: true
+                };
+            }
+            
+            const remaining = currentTarget - totalAmount;
+            return {
+                text: `Target: ${formatCurrency(currentTarget)} (${formatCurrency(remaining)} to go)`,
+                reached: false
+            };
+        }
+
+        async function fetchData() {
+            try {
+                const response = await fetch(SHEET_URL);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                const data = parseCSV(text);
+                
+                if (data.length === 0) {
+                    throw new Error('No data found in spreadsheet');
+                }
+                
+                displayDashboard(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('agentsList').innerHTML = 
+                    `<div class="error">Error loading data: ${error.message}</div>`;
+            }
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            
+            if (lines.length < 2) {
+                return [];
+            }
+            
+            const headers = parseCSVLine(lines[0]);
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim()) {
+                    const values = parseCSVLine(lines[i]);
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] || '';
+                    });
+                    data.push(row);
+                }
+            }
+
+            return data;
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            
+            return result;
+        }
+
+        function displayDashboard(data) {
+            // Calculate totals
+            let grandTotal = 0;
+            let todayTotal = 0;
+
+            // Prepare agent data
+            const agents = data.map(agent => {
+                const total = parseFloat(agent.Count || agent.count || 0);
+                const today = parseFloat(agent.Today || agent.today || agent.Daily || 0);
+                
+                grandTotal += total;
+                todayTotal += today;
+
+                return {
+                    name: agent.Stage || agent.Name || agent.stage || 'Unknown',
+                    total: total,
+                    today: today
+                };
+            });
+
+            // Sort by total (highest first)
+            agents.sort((a, b) => b.total - a.total);
+
+            // Update grand totals
+            document.getElementById('grandTotal').textContent = formatCurrency(grandTotal);
+            document.getElementById('todayTotal').textContent = formatCurrency(todayTotal);
+
+            // Render agents list
+            const agentsList = document.getElementById('agentsList');
+            agentsList.innerHTML = agents.map(agent => {
+                const targetStatus = getTargetStatus(agent.total);
+                
+                return `
+                    <div class="agent-row">
+                        <div class="agent-name">${agent.name}</div>
+                        <div class="agent-value">
+                            <div class="agent-value-container">
+                                <div class="main-value">${formatCurrency(agent.total)}</div>
+                                <div class="target-info ${targetStatus.reached ? 'target-reached' : ''}">
+                                    ${targetStatus.text}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agent-value">
+                            <div class="main-value">${formatCurrency(agent.today)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Fetch data on page load
+        fetchData();
+
+        // Auto-refresh every 60 seconds
+        setInterval(fetchData, 60000);
+    </script>
+</body>
+</html>
